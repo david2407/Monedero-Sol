@@ -12,11 +12,13 @@ pub mod monedero {
         let owner_id = context.accounts.owner.key(); // caller wallet
 
         let dineros = Vec::<Pubkey>::new(); // crear un vector vacio
+        let tokens = Vec::<Pubkey>::new(); // crear un vector vacio
 
         context.accounts.monedero.set_inner(Monedero {
             owner: owner_id,
             n_monedero: n_monedero.clone(),
             dineros,
+            tokens,
         }); // crear el struct de monedero, lo serializa y lo guarda en el espacio de la cuenta (su uso se recomienda cuando se crea una cuenta)
 
         msg!(
@@ -60,6 +62,42 @@ pub mod monedero {
             context.accounts.monedero.n_monedero,
             context.accounts.owner.key()
         ); // Log de verificacion
+
+        Ok(())
+    }
+
+    pub fn agregar_token(
+        context: Context<NuevoToken>,
+        nombre: String,
+        cantidad: u64,
+        proveedor: String,
+    ) -> Result<()> {
+        require!(
+            context.accounts.monedero.owner == context.accounts.owner.key(),
+            Errores::NoEresElOwner
+        ); // Medida de seguridad
+
+        let token = Token {
+            monedero: context.accounts.monedero.n_monedero.clone(),
+            nombre: nombre.clone(),
+            cantidad,
+            proveedor,
+        };
+
+        context.accounts.token.set_inner(token);
+
+        context
+            .accounts
+            .monedero
+            .tokens
+            .push(context.accounts.token.key());
+
+        msg!(
+            "Token {}, creado exitosamente en el monedero {}!. Ownerid: {}",
+            nombre.clone(),
+            context.accounts.monedero.n_monedero,
+            context.accounts.owner.key()
+        );
 
         Ok(())
     }
@@ -159,9 +197,12 @@ pub struct Monedero {
 
     #[max_len(10)]
     pub dineros: Vec<Pubkey>,
+
+    #[max_len(60)]
+    pub tokens: Vec<Pubkey>,
 }
 
-/////////////////////////// Libro ///////////////////////////
+/////////////////////////// Dinero ///////////////////////////
 
 #[account]
 #[derive(InitSpace, PartialEq, Debug)]
@@ -175,6 +216,23 @@ pub struct Dinero {
     pub cantidad: u64,
 
     pub disponible: bool,
+}
+
+////////////////////////// Token ////////////////////////////
+
+#[account]
+#[derive(InitSpace, PartialEq, Debug)]
+pub struct Token {
+    #[max_len(60)]
+    pub monedero: String,
+
+    #[max_len(60)]
+    pub nombre: String,
+
+    pub cantidad: u64,
+
+    #[max_len(60)]
+    pub proveedor: String,
 }
 
 /////////////////////////// CONTEXTOS ///////////////////////////
@@ -254,4 +312,26 @@ pub struct EliminarDinero<'info> {
 
     #[account(mut)]
     pub monedero: Account<'info, Monedero>,
+}
+
+////////////////////////////// Nuevo Token  ///////////////////////////
+#[derive(Accounts)]
+#[instruction(nombre:String)]
+pub struct NuevoToken<'info> {
+    #[account(mut)]
+    pub owner: Signer<'info>,
+
+    #[account(
+        init,
+        payer = owner, 
+        space = 8 + Token::INIT_SPACE,
+        seeds = [b"token", nombre.as_bytes(), owner.key().as_ref()],
+        bump
+    )]
+    pub token: Account<'info, Token>,
+
+    #[account(mut)]
+    pub monedero: Account<'info, Monedero>,
+
+    pub system_program: Program<'info, System>,
 }
