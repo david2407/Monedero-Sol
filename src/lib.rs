@@ -1,82 +1,96 @@
 use anchor_lang::prelude::*;
 
-declare_id!("GkW8S8pj6ZJAfAETJmcuLn5cABBUrt6X8udYVRHyeJar");
+declare_id!("6AokzEwMeoCBwH1Lmyxi2qxhLBffPMdTNMHwcjVUV23z");
 
 #[program] // El codigo empieza desde aqui
-pub mod biblioteca {
+pub mod monedero {
     use super::*; // Importa todas los structs y enums definidos fuera del modulo
 
     /////////////////////////// INSTRUCCIONES ///////////////////////////
     /////////////////////////// Crear Biblioteca ///////////////////////////
-    pub fn crear_biblioteca(context: Context<NuevaBiblioteca>, n_biblioteca: String) -> Result<()> {
+    pub fn crear_monedero(context: Context<NuevoMonedero>, n_monedero: String) -> Result<()> {
+        let owner_id = context.accounts.owner.key(); // caller wallet
 
-        let owner_id = context.accounts.owner.key(); // caller wallet 
+        let dineros = Vec::<Pubkey>::new(); // crear un vector vacio
 
-        let libros = Vec::<Pubkey>::new(); // crear un vector vacio 
-
-        context.accounts.biblioteca.set_inner(Biblioteca { 
+        context.accounts.monedero.set_inner(Monedero {
             owner: owner_id,
-            n_biblioteca: n_biblioteca.clone(),
-            libros,
-        }); // crear el struct de la biblioteca, lo serializa y lo guarda en el espacio de la cuenta (su uso se recomienda cuando se crea una cuenta)
+            n_monedero: n_monedero.clone(),
+            dineros,
+        }); // crear el struct de monedero, lo serializa y lo guarda en el espacio de la cuenta (su uso se recomienda cuando se crea una cuenta)
 
-        msg!("Biblioteca {}, creada exitosamente!. Owner id: {}", n_biblioteca.clone(), owner_id); // Log de verificacion
+        msg!(
+            "Monedero {}, creado exitosamente!. Owner id: {}",
+            n_monedero.clone(),
+            owner_id
+        ); // Log de verificacion
 
         Ok(())
     }
 
     /////////////////////////// Nuevo Libro ///////////////////////////
-    pub fn agregar_libro(context: Context<NuevoLibro>, nombre: String, paginas: u16) -> Result<()> {
-        
+    pub fn agregar_dinero(
+        context: Context<NuevoDinero>,
+        nombre: String,
+        cantidad: u64,
+    ) -> Result<()> {
         require!(
-            context.accounts.biblioteca.owner == context.accounts.owner.key(),
+            context.accounts.monedero.owner == context.accounts.owner.key(),
             Errores::NoEresElOwner
-        ); // Medida de seguridad 
+        ); // Medida de seguridad
 
-        let libro = Libro {
-            biblioteca: context.accounts.biblioteca.n_biblioteca.clone(),
+        let dinero = Dinero {
+            monedero: context.accounts.monedero.n_monedero.clone(),
             nombre: nombre.clone(),
-            paginas,
+            cantidad,
             disponible: true,
-        }; // Creacion del struct libro 
+        }; // Creacion del struct libro
 
-        context.accounts.libro.set_inner(libro); // Serializa y guarda el struct en el espacio de la cuenta
+        context.accounts.dinero.set_inner(dinero); // Serializa y guarda el struct en el espacio de la cuenta
 
         context
             .accounts
-            .biblioteca
-            .libros
-            .push(context.accounts.libro.key()); // Agrega el PDA del libro al vector de libros de biblioteca
+            .monedero
+            .dineros
+            .push(context.accounts.dinero.key()); // Agrega el PDA del libro al vector de libros de biblioteca
 
-        msg!("Libro {}, creado exitosamente, en la biblioteca {}!. Owner id: {}", nombre.clone(),  context.accounts.biblioteca.n_biblioteca, context.accounts.owner.key()); // Log de verificacion
-    
+        msg!(
+            "Dinero {}, creado exitosamente, en el monedero {}!. Owner id: {}",
+            nombre.clone(),
+            context.accounts.monedero.n_monedero,
+            context.accounts.owner.key()
+        ); // Log de verificacion
+
         Ok(())
     }
 
     /////////////////////////// Eliminar Libro ///////////////////////////
-    pub fn eliminar_libro(context: Context<EliminarLibro>, nombre: String) -> Result<()> {
+    pub fn eliminar_dinero(context: Context<EliminarDinero>, nombre: String) -> Result<()> {
         require!(
-            context.accounts.biblioteca.owner == context.accounts.owner.key(),
+            context.accounts.monedero.owner == context.accounts.owner.key(),
             Errores::NoEresElOwner
-        ); // Medida de seguridad 
+        ); // Medida de seguridad
 
-        let biblioteca = &mut context.accounts.biblioteca;
-        let libros = &biblioteca.libros;
+        let monedero = &mut context.accounts.monedero;
+        let dineros = &monedero.dineros;
 
         // Verificar que el libro pertenece a esta biblioteca
         require!(
-            context.accounts.libro.biblioteca == biblioteca.n_biblioteca,
-            Errores::LibroNoPertenece
+            context.accounts.dinero.monedero == monedero.n_monedero,
+            Errores::DineroNoPertenece
         );
 
-        require!(biblioteca.libros.contains(&context.accounts.libro.key()), Errores::LibroNoExiste);
+        require!(
+            monedero.dineros.contains(&context.accounts.dinero.key()),
+            Errores::DineroNoExiste
+        );
 
         let mut pos = 0;
 
-        for i in 0..libros.len() {
-            if libros[i] == context.accounts.libro.key() {
+        for i in 0..dineros.len() {
+            if dineros[i] == context.accounts.dinero.key() {
                 pos = i;
-                break
+                break;
             }
         }
 
@@ -87,28 +101,33 @@ pub mod biblioteca {
         //     .position(|&x| x == context.accounts.libro.key())
         //     .ok_or(Errores::LibroNoExiste)?;
 
-        biblioteca.libros.remove(pos);
+        monedero.dineros.remove(pos);
 
         // La cuenta del libro se cierra automáticamente por Anchor debido a 'close = owner'
-        msg!("Libro '{}' eliminado exitosamente de la biblioteca {}!. Owner id: {}", nombre, biblioteca.n_biblioteca, context.accounts.owner.key());
-            
+        msg!(
+            "Dinero '{}' eliminado exitosamente del monedero {}!. Owner id: {}",
+            nombre,
+            monedero.n_monedero,
+            context.accounts.owner.key()
+        );
+
         Ok(())
     }
 
     /////////////////////////// Alternar Estado ///////////////////////////
-    pub fn alternar_estado(context: Context<ModificarLibro>, nombre: String) -> Result<()> {
+    pub fn alternar_estado(context: Context<ModificarDinero>, nombre: String) -> Result<()> {
         require!(
-            context.accounts.biblioteca.owner == context.accounts.owner.key(),
+            context.accounts.monedero.owner == context.accounts.owner.key(),
             Errores::NoEresElOwner
         );
 
-        let libro = &mut context.accounts.libro;
-        let estado = libro.disponible;
+        let dinero = &mut context.accounts.dinero;
+        let estado = dinero.disponible;
         let nuevo_estado = !estado;
-        libro.disponible = nuevo_estado;
-        
+        dinero.disponible = nuevo_estado;
+
         msg!(
-            "El libro: {} ahora tiene un valor de disponibilidad: {}",
+            "El dinero: {} ahora tiene un valor de disponibilidad: {}",
             nombre,
             nuevo_estado
         );
@@ -119,66 +138,63 @@ pub mod biblioteca {
 /////////////////////////// Codigos de Error ///////////////////////////
 #[error_code]
 pub enum Errores {
-    #[msg("Error, no eres el propietario de la biblioteca que deseas modificar")]
+    #[msg("Error, no eres el propietario de la monedera que deseas modificar")]
     NoEresElOwner,
-    #[msg("Error, el libro con el que deseas interactuar no existe")]
-    LibroNoExiste,
-    #[msg("Error, el libro no pertenece a esta biblioteca")]
-    LibroNoPertenece,
+    #[msg("Error, el dinero con el que deseas interactuar no existe")]
+    DineroNoExiste,
+    #[msg("Error, el dinero no pertenece a esta monedera")]
+    DineroNoPertenece,
 }
 
-
 /////////////////////////// CUENTAS ///////////////////////////
-/////////////////////////// Biblioteca ///////////////////////////
+/////////////////////////// Monedero ///////////////////////////
 
 #[account]
 #[derive(InitSpace)]
-pub struct Biblioteca {
+pub struct Monedero {
     pub owner: Pubkey,
 
     #[max_len(60)]
-    pub n_biblioteca: String,
+    pub n_monedero: String,
 
     #[max_len(10)]
-    pub libros: Vec<Pubkey>,
+    pub dineros: Vec<Pubkey>,
 }
 
 /////////////////////////// Libro ///////////////////////////
 
 #[account]
 #[derive(InitSpace, PartialEq, Debug)]
-pub struct Libro {
+pub struct Dinero {
     #[max_len(60)]
-    pub biblioteca: String,
+    pub monedero: String,
 
     #[max_len(60)]
     pub nombre: String,
 
-    pub paginas: u16,
+    pub cantidad: u64,
 
     pub disponible: bool,
 }
 
-
 /////////////////////////// CONTEXTOS ///////////////////////////
-/////////////////////////// Nueva Biblioteca ///////////////////////////
-/// Instruccion: crear_biblioteca
-
+/////////////////////////// Nuevo Monedero ///////////////////////////
+/// Instruccion: crear_monedero
 
 #[derive(Accounts)]
-#[instruction(n_biblioteca:String)]
-pub struct NuevaBiblioteca<'info> {
+#[instruction(n_monedero:String)]
+pub struct NuevoMonedero<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
 
     #[account(
         init,
         payer = owner, 
-        space = 8 + Biblioteca::INIT_SPACE, 
-        seeds = [b"biblioteca", n_biblioteca.as_bytes(), owner.key().as_ref()],
+        space = 8 + Monedero::INIT_SPACE, 
+        seeds = [b"monedero", n_monedero.as_bytes(), owner.key().as_ref()],
         bump
     )]
-    pub biblioteca: Account<'info, Biblioteca>,
+    pub monedero: Account<'info, Monedero>,
 
     pub system_program: Program<'info, System>,
 }
@@ -186,59 +202,56 @@ pub struct NuevaBiblioteca<'info> {
 /////////////////////////// NuevoLibro ///////////////////////////
 /// Instruccion: agregar_libro
 
-
 #[derive(Accounts)]
 #[instruction(nombre:String)]
-pub struct NuevoLibro<'info> {
+pub struct NuevoDinero<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
 
     #[account(
         init,
         payer = owner, 
-        space = 8 + Libro::INIT_SPACE,
-        seeds = [b"libro", nombre.as_bytes(), owner.key().as_ref()],
+        space = 8 + Dinero::INIT_SPACE,
+        seeds = [b"dinero", nombre.as_bytes(), owner.key().as_ref()],
         bump
     )]
-    pub libro: Account<'info, Libro>,
+    pub dinero: Account<'info, Dinero>,
 
     #[account(mut)]
-    pub biblioteca: Account<'info, Biblioteca>,
+    pub monedero: Account<'info, Monedero>,
 
     pub system_program: Program<'info, System>,
 }
 
-
 /////////////////////////// Modificar Libro ///////////////////////////
 /// Instruccion: alternar_estado (tambien puede servir para funciones relacionadas con cambiar nombre, numero de paginas o alguna otra variable contenida en el struct Lbro)
 
-
 #[derive(Accounts)]
-pub struct ModificarLibro<'info> {
+pub struct ModificarDinero<'info> {
     pub owner: Signer<'info>,
 
     #[account(mut)]
-    pub libro: Account<'info, Libro>,
+    pub dinero: Account<'info, Dinero>,
 
     #[account(mut)]
-    pub biblioteca: Account<'info, Biblioteca>,
+    pub monedero: Account<'info, Monedero>,
 }
 
 /////////////////////////// Eliminar Libro ///////////////////////////
-///  Instruccion: eliminar_libro -> cierra la cuenta 
+///  Instruccion: eliminar_libro -> cierra la cuenta
 
 #[derive(Accounts)]
-pub struct EliminarLibro<'info> {
+pub struct EliminarDinero<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
 
     #[account(
         mut,
         close = owner,
-        constraint = libro.biblioteca == biblioteca.n_biblioteca @ Errores::LibroNoPertenece
+        constraint = dinero.monedero == monedero.n_monedero @ Errores::DineroNoPertenece
     )]
-    pub libro: Account<'info, Libro>,
+    pub dinero: Account<'info, Dinero>,
 
     #[account(mut)]
-    pub biblioteca: Account<'info, Biblioteca>,
+    pub monedero: Account<'info, Monedero>,
 }
