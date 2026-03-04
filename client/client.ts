@@ -2,7 +2,7 @@
 import { PublicKey } from "@solana/web3.js";
 
 ////////////////// Constantes ////////////////////
-const n_biblioteca = "Alejandria"; // Nombre de la biblioteca
+const n_monedero = "David wallet"; // Nombre de la biblioteca
 const owner = pg.wallet.publicKey; // Wallet
 
 //////////////////// Client Test Logs ////////////////////
@@ -25,22 +25,22 @@ correspondiente. Se recomienda no usar valores sencillos (que no solo dependan d
 compuestas de valores redundantes (como el program id o alguna cuenta padre).
 */
 //////////////////// Biblioteca ////////////////////
-function pdaBiblioteca(n_biblioteca) {
+function pdaMonedero(n_monedero) {
   return PublicKey.findProgramAddressSync(
     [
-      Buffer.from("biblioteca"), // Semilla 1: b"biblioteca"
-      Buffer.from(n_biblioteca), // Semilla 2: nombre de la biblioteca  -> String
+      Buffer.from("monedero"), // Semilla 1: b"biblioteca"
+      Buffer.from(n_monedero), // Semilla 2: nombre de la biblioteca  -> String
       owner.toBuffer(), // Semilla 3: wallet -> Pubkey
     ],
     pg.PROGRAM_ID // Program ID: Siempre va al final
   );
 }
 //////////////////// Libro ////////////////////
-function pdaLibro(n_libro) {
+function pdaDinero(n_dinero) {
   return PublicKey.findProgramAddressSync(
     [
-      Buffer.from("libro"), // Semilla 1: b"libro"
-      Buffer.from(n_libro), // Semilla 2: nombre del libro: -> String
+      Buffer.from("dinero"), // Semilla 1: b"libro"
+      Buffer.from(n_dinero), // Semilla 2: nombre del libro: -> String
       owner.toBuffer(), // Semilla 3: wallet -> Pubkey
     ],
     pg.PROGRAM_ID // Program ID: Siempre va al final
@@ -49,15 +49,15 @@ function pdaLibro(n_libro) {
 
 //////////////////// Crear Biblioteca ////////////////////
 // Para crear la biblioteca solo es necesario el nombre que tendra
-async function crearBiblioteca(n_biblioteca) {
-  const [pda_biblioteca] = pdaBiblioteca(n_biblioteca); // Primero se obtiene la cuenta de la biblioteca
+async function crearMonedero(n_monedero) {
+  const [pda_monedero] = pdaMonedero(n_monedero); // Primero se obtiene la cuenta de la biblioteca
 
   const txHash = await pg.program.methods // mediante la libreria pg (solana playground) se acceden a los metodos del programa
-    .crearBiblioteca(n_biblioteca) // crear biblioteca
+    .crearMonedero(n_monedero) // crear biblioteca
     .accounts({
       // Se agregan las cuentas de las que depende (Contexto del struct NuevaBiblioteca)
       owner: owner,
-      biblioteca: pda_biblioteca,
+      monedero: pda_monedero,
     })
     .rpc();
 
@@ -66,18 +66,19 @@ async function crearBiblioteca(n_biblioteca) {
 
 //////////////////// Agregar Libro ////////////////////
 // Para crear un libro solo es necesario pasar el libro y el numero de paginas. El estado se define automaticamente en el programa
-async function agregarLibro(n_libro, paginas) {
+async function agregarDinero(n_dinero, cantidad) {
   // Agregar Libro
-  const [pda_libro] = pdaLibro(n_libro); // se determina la cuenta del libro
-  const [pda_biblioteca] = pdaBiblioteca(n_biblioteca); // se obtiene la cuenta de la biblioteca
+  const [pda_dinero] = pdaDinero(n_dinero); // se determina la cuenta del libro
+  const [pda_monedero] = pdaMonedero(n_monedero);
+  const value = new anchor.BN(cantidad); // se obtiene la cuenta de la biblioteca
 
   const txHash = await pg.program.methods
-    .agregarLibro(n_libro, paginas) // agregar_libro
+    .agregarDinero(n_dinero, value) // agregar_libro
     .accounts({
       // cuentas del contexto
       owner: owner,
-      libro: pda_libro,
-      biblioteca: pda_biblioteca,
+      dinero: pda_dinero,
+      monedero: pda_monedero,
     })
     .rpc();
 
@@ -86,18 +87,18 @@ async function agregarLibro(n_libro, paginas) {
 
 //////////////////// Alternar estado ////////////////////
 // Para cambiar el estado de true a false o visceversa solo se necesita el nombre del libro
-async function cambiarEstado(n_libro) {
+async function cambiarEstado(n_dinero) {
   // Modificar Libro
-  const [pda_libro] = pdaLibro(n_libro); // se determina la cuenta del libro
-  const [pda_biblioteca] = pdaBiblioteca(n_biblioteca); // se obtiene la cuenta de la biblioteca
+  const [pda_dinero] = pdaDinero(n_dinero); // se determina la cuenta del libro
+  const [pda_monedero] = pdaMonedero(n_monedero); // se obtiene la cuenta de la biblioteca
 
   const txHash = await pg.program.methods
-    .alternarEstado(n_libro) // alternar_estado
+    .alternarEstado(n_monedero) // alternar_estado
     .accounts({
       // cuentas del contexto
       owner: owner,
-      libro: pda_libro,
-      biblioteca: pda_biblioteca,
+      dinero: pda_dinero,
+      monedero: pda_monedero,
     })
     .rpc();
 
@@ -106,17 +107,17 @@ async function cambiarEstado(n_libro) {
 
 //////////////////// Eliminar Libro ////////////////////
 // Para eliminar un libro solo es necesario proporcionar el nombre del libro a eliminar de la biblioteca
-async function eliminarLibro(n_libro) {
+async function eliminarDinero(n_dinero) {
   // Eliminar Libro
-  const [pda_libro] = pdaLibro(n_libro); // se determina la cuenta del libro
-  const [pda_biblioteca] = pdaBiblioteca(n_biblioteca); // se obtiene la cuenta de la biblioteca
+  const [pda_dinero] = pdaDinero(n_dinero); // se determina la cuenta del libro
+  const [pda_monedero] = pdaMonedero(n_monedero); // se obtiene la cuenta de la biblioteca
   const txHash = await pg.program.methods
-    .eliminarLibro(n_libro) // eliminar_libro
+    .eliminarDinero(n_dinero) // eliminar_libro
     .accounts({
       // cuentas del contexto
       owner: owner,
-      libro: pda_libro,
-      biblioteca: pda_biblioteca,
+      dinero: pda_dinero,
+      monedero: pda_monedero,
     })
     .rpc();
 
@@ -137,47 +138,45 @@ Para lograr hacerlo es necesario realizar los siguientes pasos:
 3. Por cada direccion, obtener la informacion del libro 
 4. Mostrarla con console.log
 */
-async function verLibros(n_biblioteca) {
+async function verDineros(n_monedero) {
   // Ver Libros
-  const [pda_biblioteca] = pdaBiblioteca(n_biblioteca); // se obtiene la cuenta de la biblioteca
+  const [pda_monedero] = pdaMonedero(n_monedero); // se obtiene la cuenta de la biblioteca
 
   try {
     // Se accede a los datos de la cuenta (biblioteca)
-    const bibliotecaAccount = await pg.program.account.biblioteca.fetch(
-      pda_biblioteca
+    const monederoAccount = await pg.program.account.monedero.fetch(
+      pda_monedero
     );
 
     // Mediante el .length se obtiene el tamaño del vector de libros en laa biblioteca
-    const numero_libros = bibliotecaAccount.libros.length;
+    const numero_dineros = monederoAccount.dineros.length;
 
     // Se verifican si hay libros en el vector
-    if (!bibliotecaAccount.libros || numero_libros === 0) {
-      console.log("Biblioteca vacía");
+    if (!monederoAccount.dineros || numero_dineros === 0) {
+      console.log("Monedera vacía");
       return;
     }
 
     // Se imprime el valor en la consola
-    console.log("Cantidad de libros:", numero_libros);
+    console.log("Cantidad de dineros:", numero_dineros);
 
     // Se itera cada cuenta (libro) del vector (biblioteca) y se obtiene la informacion asociada
-    for (let i = 0; i < numero_libros; i++) {
-      const libroKey = bibliotecaAccount.libros[i];
+    for (let i = 0; i < numero_dineros; i++) {
+      const dineroKey = monederoAccount.dineros[i];
 
-      const libroAccount = await pg.program.account.libro.fetch(libroKey);
+      const dineroAccount = await pg.program.account.dinero.fetch(dineroKey);
 
       // Finaliza mostrando en la terminal la informacion de cada libro
       console.log(
-        `Libro #${i + 1}: \n * Nombre: ${libroAccount.nombre} \n * Páginas: ${
-          libroAccount.paginas
-        } \n * Biblioteca: ${
-          libroAccount.biblioteca
-        } \n * Disponible: ${
-          libroAccount.disponible
-        } \n * Dirección(PDA): ${libroKey.toBase58()}`
+        `Dinero #${i + 1}: \n * Nombre: ${dineroAccount.nombre} \n * Páginas: ${
+          dineroAccount.cantidad
+        } \n * Monedero: ${dineroAccount.monedero} \n * Disponible: ${
+          dineroAccount.disponible
+        } \n * Dirección(PDA): ${dineroKey.toBase58()}`
       );
     }
   } catch (error) {
-    console.error("Error viendo libros:", error);
+    console.error("Error viendo dineros:", error);
 
     // Debugging adicional
     if (error.message) {
@@ -189,10 +188,10 @@ async function verLibros(n_biblioteca) {
   }
 }
 
-// crearBiblioteca(n_biblioteca);
-// agregarLibro("El alquimista", 255);
+//crearMonedero(n_monedero);
+//agregarDinero("USD", 80000);
 // eliminarLibro("El alquimista");
 // cambiarEstado("El alquimista");
-// verLibros(n_biblioteca);
+verDineros(n_monedero);
 
 // solana confirm -v <txHash>
