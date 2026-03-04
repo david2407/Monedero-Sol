@@ -2,7 +2,7 @@
 import { PublicKey } from "@solana/web3.js";
 
 ////////////////// Constantes ////////////////////
-const n_monedero = "David wallet"; // Nombre de la biblioteca
+const n_monedero = "David wallet 3"; // Nombre de la biblioteca
 const owner = pg.wallet.publicKey; // Wallet
 
 //////////////////// Client Test Logs ////////////////////
@@ -47,6 +47,18 @@ function pdaDinero(n_dinero) {
   );
 }
 
+//////////////////// Libro ////////////////////
+function pdaToken(n_token) {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("token"), // Semilla 1: b"libro"
+      Buffer.from(n_token), // Semilla 2: nombre del libro: -> String
+      owner.toBuffer(), // Semilla 3: wallet -> Pubkey
+    ],
+    pg.PROGRAM_ID // Program ID: Siempre va al final
+  );
+}
+
 //////////////////// Crear Biblioteca ////////////////////
 // Para crear la biblioteca solo es necesario el nombre que tendra
 async function crearMonedero(n_monedero) {
@@ -78,6 +90,27 @@ async function agregarDinero(n_dinero, cantidad) {
       // cuentas del contexto
       owner: owner,
       dinero: pda_dinero,
+      monedero: pda_monedero,
+    })
+    .rpc();
+
+  console.log("txHash: ", txHash);
+}
+
+//////////////////// Agregar Libro ////////////////////
+// Para crear un libro solo es necesario pasar el libro y el numero de paginas. El estado se define automaticamente en el programa
+async function agregarToken(n_token, cantidad, proveedor) {
+  // Agregar Libro
+  const [pda_token] = pdaToken(n_token); // se determina la cuenta del libro
+  const [pda_monedero] = pdaMonedero(n_monedero);
+  const value = new anchor.BN(cantidad); // se obtiene la cuenta de la biblioteca
+
+  const txHash = await pg.program.methods
+    .agregarToken(n_token, value, proveedor) // agregar_libro
+    .accounts({
+      // cuentas del contexto
+      owner: owner,
+      token: pda_token,
       monedero: pda_monedero,
     })
     .rpc();
@@ -170,7 +203,8 @@ async function verDineros(n_monedero) {
       console.log(
         `Dinero #${i + 1}: \n * Nombre: ${dineroAccount.nombre} \n * Páginas: ${
           dineroAccount.cantidad
-        } \n * Monedero: ${dineroAccount.monedero} \n * Disponible: ${
+        } 
+         \n * Monedero: ${dineroAccount.monedero} \n * Disponible: ${
           dineroAccount.disponible
         } \n * Dirección(PDA): ${dineroKey.toBase58()}`
       );
@@ -188,10 +222,61 @@ async function verDineros(n_monedero) {
   }
 }
 
+async function verTokens(n_monedero) {
+  // Ver Libros
+  const [pda_monedero] = pdaMonedero(n_monedero); // se obtiene la cuenta de la biblioteca
+
+  try {
+    // Se accede a los datos de la cuenta (biblioteca)
+    const monederoAccount = await pg.program.account.monedero.fetch(
+      pda_monedero
+    );
+
+    // Mediante el .length se obtiene el tamaño del vector de libros en laa biblioteca
+    const numero_tokens = monederoAccount.tokens.length;
+
+    // Se verifican si hay libros en el vector
+    if (!monederoAccount.tokens || numero_tokens === 0) {
+      console.log("Monedera vacía");
+      return;
+    }
+
+    // Se imprime el valor en la consola
+    console.log("Cantidad de tokens:", numero_tokens);
+
+    // Se itera cada cuenta (libro) del vector (biblioteca) y se obtiene la informacion asociada
+    for (let i = 0; i < numero_tokens; i++) {
+      const tokenKey = monederoAccount.tokens[i];
+
+      const tokenAccount = await pg.program.account.token.fetch(tokenKey);
+
+      // Finaliza mostrando en la terminal la informacion de cada libro
+      console.log(
+        `Token #${i + 1}: \n * Nombre: ${tokenAccount.nombre} 
+         \n * Monedero: ${tokenAccount.monedero} \n * Cantidad: ${
+          tokenAccount.cantidad
+        } \n * Dirección(PDA): ${tokenKey.toBase58()}`
+      );
+    }
+  } catch (error) {
+    console.error("Error viendo dineros:", error);
+
+    // Debugging adicional
+    if (error.message) {
+      console.error("Mensaje de error:", error.message);
+    }
+    if (error.logs) {
+      console.error("Logs del programa:", error.logs);
+    }
+  }
+}
+
 //crearMonedero(n_monedero);
-//agregarDinero("USD", 80000);
-// eliminarLibro("El alquimista");
+//agregarDinero("JPN", 222);
+//agregarToken("etc", 142, "pantom");
+//eliminarDinero("USD");
 // cambiarEstado("El alquimista");
 verDineros(n_monedero);
+verTokens(n_monedero);
 
 // solana confirm -v <txHash>
